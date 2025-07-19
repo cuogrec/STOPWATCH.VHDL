@@ -12,15 +12,15 @@ entity led_counter is
 end led_counter;
 
 architecture Behavioral of led_counter is
+--DVSR đại diện cho số chu kỳ xung clock gốc cần đếm để tạo ra một xung chậm hơn (slow clock tick).
+--CLOCK GỐC CỦA FPGA LÀ 100MHZ (MỖI 0,5S ĐẾM 1 LẦN VỚI DVSR VÀ 0,25S VỚI DVSR_SPEED)
+constant DVSR : integer := 50000000; --DEM XUNG 50MHZ 
+constant DVSR_speed : integer := 25000000; --DEM XUNG 25MHZ (MUỐN TĂNG TỐC THÌ DVSR PHẢI NHỎ HƠN )
 
-constant DVSR : integer := 50000000;
-
-constant DVSR_speed : integer := 25000000; 
-
-signal ms_reg,  ms_next : unsigned(26 downto 0);
-signal d0_next, d0_reg : integer range 0 to 9 := 0;
-signal d1_reg, d1_next : integer range 0 to 5 := 0;
-signal ms_tick : std_logic;
+signal ms_reg,  ms_next : unsigned(26 downto 0); --DÙNG ĐỂ ĐẾM XUNG CLOCK -> CHỌN 2^27 > 50M
+signal d0_next, d0_reg : integer range 0 to 9 := 0; --HÀNG ĐƠN VỊ
+signal d1_reg, d1_next : integer range 0 to 5 := 0; --HÀNG CHỤC 
+signal ms_tick : std_logic; 
 signal DVSR_VAL : integer ;
 
 begin
@@ -28,14 +28,14 @@ process(clk)
 begin
     if (clk'event and clk ='1') then 
         ms_reg <= ms_next;
-        d0_reg <= d0_next;
+        d0_reg <= d0_next;            --KHI CÓ CẠNH LÊN CỦA XUNG NHỊP , CẬP NHẬT CÁC THANH GHI = GIÁ TRỊ KẾ TIẾP 
         d1_reg <= d1_next;
         end if;
 end process;
     DVSR_VAL <= DVSR when speed = '0' else DVSR_speed ;
     ms_next <= (others => '0') when  reset = '1' or ms_reg = DVSR_VAL  else
-                ms_reg + 1 ;
-    ms_tick <= '1' when ms_reg = DVSR_VAL else '0';
+                ms_reg + 1 ; --NẾU RESET = 1 MS_REG = 0 CÒN KO THÌ TĂNG THÊM 1
+    ms_tick <= '1' when ms_reg = DVSR_VAL else '0'; --BẬT LÊN 1 CHU KÌ KHI  ms_reg ĐẠT DVSR
     
    
 process(d0_reg, d1_reg, ms_tick, reset)
@@ -45,10 +45,10 @@ begin
     if reset = '1' then
         d0_next <= 0;
         d1_next <= 0;
-        elsif ms_tick = '1' then
-            if  (d0_reg /= 9) then
+        elsif ms_tick = '1' then --MS_TICK = 1 ĐÃ ĐỦ 0.5S
+            if  (d0_reg /= 9) then    --D0 < 9 TĂNG D0
                 d0_next <= d0_reg + 1;
-            else d0_next <= 0;
+            else d0_next <= 0;    -- D0 = 9 => ĐẶT D0 = 0 ĐỒNG THỜI TĂNG D1 NẾU <5 HOẶC RESET D1 = 0 NẾU D1 = 5
                 if(d1_reg /=5) then d1_next <= d1_reg + 1;
                 else d1_next <= 0;
                 end if;
